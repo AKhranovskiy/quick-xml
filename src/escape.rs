@@ -129,20 +129,24 @@ pub fn unescape(raw: &[u8]) -> Result<Cow<[u8]>, EscapeError> {
                     b"apos" => unescaped.push(b'\''),
                     b"quot" => unescaped.push(b'\"'),
                     bytes => {
-                        let code = if bytes.starts_with(b"#x") {
-                            parse_hexadecimal(&bytes[2..])
-                        } else if bytes.starts_with(b"#") {
-                            parse_decimal(&bytes[1..])
+                        if bytes.starts_with(b"#") {
+                            let code = if bytes.starts_with(b"#x") {
+                                parse_hexadecimal(&bytes[2..])
+                            } else if bytes.starts_with(b"#") {
+                                parse_decimal(&bytes[1..])
+                            } else {
+                                Err(EscapeError::UnrecognizedSymbol(
+                                    start + 1..end,
+                                    String::from_utf8(bytes.to_vec()),
+                                ))
+                            }?;
+                            if code == 0 {
+                                return Err(EscapeError::EntityWithNull(start..end));
+                            }
+                            push_utf8(unescaped, code);
                         } else {
-                            Err(EscapeError::UnrecognizedSymbol(
-                                start + 1..end,
-                                String::from_utf8(bytes.to_vec()),
-                            ))
-                        }?;
-                        if code == 0 {
-                            return Err(EscapeError::EntityWithNull(start..end));
+                            unescaped.extend_from_slice(&raw[start..=end]);
                         }
-                        push_utf8(unescaped, code);
                     }
                 }
                 last_end = end + 1;
@@ -219,6 +223,7 @@ fn test_unescape() {
     assert_eq!(&*unescape(b"&lt;test&gt;").unwrap(), b"<test>");
     assert_eq!(&*unescape(b"&#x30;").unwrap(), b"0");
     assert_eq!(&*unescape(b"&#48;").unwrap(), b"0");
+    assert_eq!(&*unescape(b"a&b;").unwrap(), b"a&b;");
 }
 
 #[test]

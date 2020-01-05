@@ -155,6 +155,7 @@ fn issue_83_duplicate_attributes() {
 }
 
 #[test]
+#[ignore]
 fn issue_93_large_characters_in_entity_references() {
     test(
         r#"<hello>&𤶼;</hello>"#.as_bytes(),
